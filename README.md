@@ -101,8 +101,13 @@ Distributed under the AGPL-3.0 license. See the LICENSE file for more informatio
 
 If you use this L-index concept or calculator in your work, please cite the original publication:
 
-    Belikov AV and Belikov VV. A citation-based, author- and age-normalized, logarithmic index for evaluation of individual researchers independently of publication counts. *F1000Research* 2015, **4**:884 (doi: [10.12688/f1000research.7070.1](https://doi.org/10.12688/f1000research.7070.1))
+    Aleksey V. Belikov and Vitaly V. Belikov (2015) A citation-based, author- and age-normalized, logarithmic index for evaluation of individual researchers independently of publication counts. F1000Research 4:884 https://doi.org/10.12688/f1000research.7070.1
+    
+and this tool:
 
+    Aleksey V. Belikov (2025) L-Index Calculator: A Python tool for academic citation analysis. Zenodo https://doi.org/10.5281/zenodo.15356377
+    
+[![DOI](https://zenodo.org/badge/978968980.svg)](https://doi.org/10.5281/zenodo.15356377)
 
 ## Contact
 
