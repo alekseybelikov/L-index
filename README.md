@@ -6,7 +6,9 @@
 
 An easy to use tool to calculate the L-index, an academic citation metric, as proposed by Aleksey and Vitaly Belikov:
 
-    Belikov AV and Belikov VV. A citation-based, author- and age-normalized, logarithmic index for evaluation of individual researchers independently of publication counts. F1000Research 2015, 4:884 (https://doi.org/10.12688/f1000research.7070.1)
+    Aleksey V. Belikov and Vitaly V. Belikov (2015) A citation-based, author- and age-normalized, logarithmic index for evaluation of individual researchers independently of publication counts. F1000Research 4:884 https://doi.org/10.12688/f1000research.7070.1
+
+https://doi.org/10.12688/f1000research.7070.1
 
 This tool can be run as a standard Python script (`L-index.py`) or  as a Jupyter Notebook (`L-index.ipynb`)
 
