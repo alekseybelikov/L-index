@@ -606,7 +606,7 @@ if __name__ == "__main__":
     print("3. Check the affiliation, keywords and top publications in the log or output pdf to verify that the correct scientist has been identified")
     print("4. Using the Google Scholar ID is recommended, it can be found at the end of the profile URL")
     print("5. Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations")
-    print("6. If the script identifies one of the keywords for a large group of authors in the "authors" database field, it will add 50 authors to the author count, because the actual number of authors is unknown")
+    print("6. If the script identifies one of the keywords for a large group of authors in the authors database field, it will add 50 authors to the author count, because the actual number of authors is unknown")
     print(f"7. Keywords used for this are {LARGE_GROUP_KEYWORDS}")
     print(f"8. Calculation is based on the {max_pubs_limit} of the scientist's most cited publications (or fewer if the scientist has less or some data were missing)")
     print("9. This can be changed by modifying MAX_PUBS_TO_PROCESS parameter in the code")
