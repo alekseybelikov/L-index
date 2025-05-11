@@ -600,7 +600,7 @@ if __name__ == "__main__":
     print("-" * 60)
     max_pubs_limit = MAX_PUBS_TO_PROCESS
     print("-" * 60)
-    pprint("IMPORTANT NOTES:")
+    print("IMPORTANT NOTES:")
     print("1. Results are entirely dependent on the accuracy, completeness and public availability of the scientist's Google Scholar profile")
     print("2. While the script attempts to find the best match for the scientist's name, errors can occur, especially for common names")
     print("3. Check the affiliation, keywords and top publications in the log or output pdf to verify that the correct scientist has been identified")
