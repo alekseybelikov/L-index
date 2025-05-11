@@ -23,7 +23,7 @@ This tool can be run as a standard Python script (`L-index.py`) or  as a Jupyter
 *   Generates a detailed PDF report including:
     *   Author's profile information (name, affiliation, keywords, Google Scholar profile link).
     *   L-index, number of papers used for calculation and date of calculation
-    *   A table of the 15 (configurable) top contributing publications sorted by the L-index score with their individual scores, citation counts, author counts, ages, publication years, and titles
+    *   A table of 100 (configurable) top contributing publications sorted by the L-index score with their individual scores, citation counts, author counts, ages, publication years, and titles
 *   Provides console output with progress, warnings and summary
 
 ##  Getting Started
@@ -79,21 +79,21 @@ The script will then attempt to find the author, fetch their publications, calcu
 Several parameters can be configured by editing the `L-index.py` script or  the cell of `L-index.ipynb`:
 
 
-*   `MAX_SEARCH_RESULTS_TO_CHECK`: When searching by author name, how many top Google Scholar results to consider for disambiguation (default: `10`)
-*   `NAME_SIMILARITY_THRESHOLD`: Minimum similarity score (0.0-1.0) for an author name match if multiple results are found (default: `0.85`)
-*   `SINGLE_RESULT_SIMILARITY_THRESHOLD`: Minimum similarity score if only one author result is found (default: `0.75`)
-*   `MAX_PUBS_TO_PROCESS`: The maximum number of an author's most cited publications to fetch and process for the L-index calculation (default: `100`). **Caution: High values increase processing time and risk of hitting Google Scholar rate limits. Low values will underestimate the L-index. Always compare scientists with the same setting used to calculate their L-indices.**
-*   `TOP_N_PUBS_TO_SAVE_IN_REPORT`: Number of top contributing publications to include in the PDF report table (default: `15`)
+*   `MAX_SEARCH_RESULTS_TO_CHECK`: When searching by scientist's name, how many top Google Scholar results to consider for disambiguation (default: `10`)
+*   `NAME_SIMILARITY_THRESHOLD`: Minimum similarity score (0.0-1.0) for scientist's name match if multiple results are found (default: `0.85`)
+*   `SINGLE_RESULT_SIMILARITY_THRESHOLD`: Minimum similarity score if only one scientist is found (default: `0.75`)
+*   `MAX_PUBS_TO_PROCESS`: The maximum number of scientist's most cited publications to fetch and process for the L-index calculation (default: `100`). **Caution: High values (>100) increase processing time and risk of hitting Google Scholar rate limits. Low values (<50) will underestimate the L-index. Always compare scientists with the same setting used to calculate their L-indices.**
+*   `TOP_N_PUBS_TO_SAVE_IN_REPORT`: Number of top contributing publications to include in the PDF report table (default: `100`)
 *   `OUTPUT_DIR`: Directory where PDF reports are saved (default: `"L-index calculations"`)
 
 ## Important Notes & Limitations
 
-1.  **Google Scholar Dependency:** Results are entirely dependent on the accuracy, completeness, and public visibility of the scientist's Google Scholar profile.
-2.  **Author Disambiguation:** While the script attempts to find the best match for an author's name, errors can occur, especially for common names. Check the affiliation, keywords and top publications in the output pdf to verify that the correct scientist has been identified. Using the Google Scholar ID is recommended.
-3.  **Publication Limit:** The calculation is based on a configurable number (`MAX_PUBS_TO_PROCESS`, default 100) of the author's most cited publications. Authors with more publications might have their L-index affected by this limit. Nevertheless, 100 most cited publications capture the bulk of the L-index, even for authors with many hundreds of publications. 
-4.  **Rate Limiting:** Google Scholar enforces rate limits on requests. Extensive or rapid use of this script (especially for many authors or with a very high `MAX_PUBS_TO_PROCESS`) can lead to temporary IP blocks (HTTP 429 errors). The script attempts to handle this gracefully but may provide incomplete results if severely rate-limited. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy.
-5.  **Author Count Estimation:** The `count_authors` function estimates author numbers, which can sometimes be imprecise for complex author strings or large consortia.
-6.  **PDF Encoding:** The PDF generation uses `latin-1` encoding with replacements for unsupported characters. Some special characters in names or titles might not render perfectly.
+1.  **Google Scholar Dependency:** Results are entirely dependent on the accuracy, completeness, and public availability of the scientist's Google Scholar profile.
+2.  **Author Disambiguation:** While the script attempts to find the best match for the  scientist's name, errors can occur, especially for common names. Check the affiliation, keywords and top publications in the log or output pdf to verify that the correct scientist has been identified. Using the Google Scholar ID is recommended, it can be found at the end of the profile URL.
+3. **Information Completeness** Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations. If the script identifies one of the keywords for a large group of authors in the "authors" database field, it will add 50 authors to the author count, because the actual number of authors is unknown. Keywords used for this are "consortium", "consortia", "group", "collaboration", "society", "association", "initiative", "network", "committee", "investigators", "program", "programm", "team", "atlas", "international".
+3.  **Publication Limit:** The calculation is based on a configurable number (`MAX_PUBS_TO_PROCESS`, default 100) of scientist's most cited publications (or fewer if the scientist has less or some data were missing). Scientists with more publications might have their L-index affected by this limit. Nevertheless, we demonstrated that 50-100 most cited publications capture the bulk of the L-index, even for scientists with many hundreds of publications. Always compare scientists using the same `MAX_PUBS_TO_PROCESS` value to calculate their L-indices.
+4.  **Rate Limiting:** Google Scholar enforces rate limits on requests. Extensive or rapid use of this script (especially for many scientists or with a very high `MAX_PUBS_TO_PROCESS`) can lead to temporary IP blocks (HTTP 429 errors). The script attempts to handle this gracefully but may provide incomplete results if severely rate-limited. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy.
+
 
 ## License
 

@@ -22,18 +22,17 @@ except ImportError:
         MaxTriesExceededException = Exception
         logging.warning("Could not import specific MaxTriesExceededException from scholarly. Rate limit errors might not be caught precisely.")
 
-
 MAX_SEARCH_RESULTS_TO_CHECK = 10
 NAME_SIMILARITY_THRESHOLD = 0.85
 SINGLE_RESULT_SIMILARITY_THRESHOLD = 0.75
 
-MAX_PUBS_TO_PROCESS = 100 
-TOP_N_PUBS_TO_SAVE_IN_REPORT = 15
+MAX_PUBS_TO_PROCESS = 100
+TOP_N_PUBS_TO_SAVE_IN_REPORT = 100
 OUTPUT_DIR = "L-index calculations"
 
 logger = logging.getLogger()
 
-LARGE_GROUP_KEYWORDS = ["consortium", "consortia", "group", "collaboration", "society", "association"]
+LARGE_GROUP_KEYWORDS = ["consortium", "consortia", "group", "collaboration", "society", "association", "initiative", "network", "committee", "investigators", "program", "programm", "team", "atlas", "international"]
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 if logger.hasHandlers():
@@ -44,13 +43,11 @@ stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
 def sanitize_filename(name):
-    """Removes or replaces characters unsuitable for filenames."""
     s = re.sub(r'[^\w\-\.]+', '_', name)
     s = re.sub(r'_+', '_', s).strip('_')
     return s if s else "invalid_name"
 
 def count_authors(author_string):
-    """Estimates the number of authors from a string."""
     if not author_string:
         return None
     if isinstance(author_string, (list, tuple)):
@@ -75,17 +72,9 @@ def count_authors(author_string):
     return base_count + additional_count
 
 def encode_string_for_pdf(text):
-    """Encodes text to latin-1, replacing unsupported characters, for PDF compatibility."""
     if text is None:
         return ""
-    try:
-        text_str = str(text)
-        return text_str.encode('latin-1', 'replace').decode('latin-1')
-    except Exception:
-        try:
-            return str(text).encode('ascii', 'replace').decode('ascii')
-        except Exception:
-            return "Encoding Error"
+    return str(text)
 
 
 class PDF(FPDF):
@@ -93,14 +82,13 @@ class PDF(FPDF):
         pass
 
     def chapter_title(self, title):
-        self.set_font('Helvetica', 'B', 12)
-        # Encode title safely
+        self.set_font('DejaVu', 'B', 12)
         safe_title = encode_string_for_pdf(title)
         self.cell(0, 8, safe_title, border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.ln(2)
 
     def chapter_body(self, data, is_list=False):
-        self.set_font('Helvetica', '', 10)
+        self.set_font('DejaVu', '', 10)
         if is_list:
             for item in data:
                 safe_item = encode_string_for_pdf(f"- {item}")
@@ -111,11 +99,11 @@ class PDF(FPDF):
         self.ln()
 
     def key_value(self, key, value, is_link=False, link_url=""):
-        self.set_font('Helvetica', 'B', 10)
+        self.set_font('DejaVu', 'B', 10)
         key_width = 30
         safe_key = encode_string_for_pdf(key + ":")
         self.cell(key_width, 6, safe_key, border=0, align='L', new_x=XPos.RIGHT, new_y=YPos.TOP)
-        self.set_font('Helvetica', '', 10)
+        self.set_font('DejaVu', '', 10)
         current_x = self.get_x()
         if value:
             processed_value = encode_string_for_pdf(value)
@@ -134,7 +122,7 @@ class PDF(FPDF):
              self.cell(0, 6, "N/A", border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def publication_table(self, header, data):
-        self.set_font('Helvetica', 'B', 8)
+        self.set_font('DejaVu', 'B', 8) # Changed from Helvetica
         total_width = self.w - 2 * self.l_margin
         base_pcts = [0.04, 0.08, 0.08, 0.08, 0.05, 0.06]
         min_widths = [8, 12, 12, 12, 8, 10]
@@ -153,8 +141,8 @@ class PDF(FPDF):
             header_text = encode_string_for_pdf(title)
             self.cell(col_widths[i], 7, header_text, border=1, align=align_val, new_x=new_x_pos, new_y=new_y_pos)
 
-        self.set_font('Helvetica', '', 8)
-        for row in data: 
+        self.set_font('DejaVu', '', 8)
+        for row in data:
             y_start = self.get_y()
 
             title_chars_per_line_est = col_widths[6] * 2 if col_widths[6] > 0 else 1
@@ -163,14 +151,14 @@ class PDF(FPDF):
 
             if y_start + needed_height > self.h - self.b_margin:
                 self.add_page()
-                self.set_font('Helvetica', 'B', 8)
-                for i, title_h in enumerate(header):
+                self.set_font('DejaVu', 'B', 8)
+                for i_h, title_h in enumerate(header):
                     align_val = Align.C
-                    new_x_pos = XPos.RIGHT if i < len(header) - 1 else XPos.LMARGIN
-                    new_y_pos = YPos.TOP if i < len(header) - 1 else YPos.NEXT
+                    new_x_pos = XPos.RIGHT if i_h < len(header) - 1 else XPos.LMARGIN
+                    new_y_pos = YPos.TOP if i_h < len(header) - 1 else YPos.NEXT
                     header_text_new = encode_string_for_pdf(title_h)
-                    self.cell(col_widths[i], 7, header_text_new, border=1, align=align_val, new_x=new_x_pos, new_y=new_y_pos)
-                self.set_font('Helvetica', '', 8)
+                    self.cell(col_widths[i_h], 7, header_text_new, border=1, align=align_val, new_x=new_x_pos, new_y=new_y_pos)
+                self.set_font('DejaVu', '', 8)
                 y_start = self.get_y()
 
             current_max_y = y_start
@@ -193,26 +181,36 @@ class PDF(FPDF):
             self.set_y(current_max_y)
 
 
-def save_results_to_pdf(filename, author_details, l_index, processed_count, total_pubs_reported, top_pubs, was_rate_limited, skips_info):
-    """Saves the calculation results to a PDF file with the updated format."""
+def save_results_to_pdf(filename, author_details, l_index, processed_count, total_pubs_reported, top_pubs, was_rate_limited, skips_summary_data):
     try:
         pdf = PDF(orientation='L', unit='mm', format='A4')
+
+        try:
+            pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+            pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
+            pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf', uni=True)
+            pdf.add_font('DejaVu', 'BI', 'DejaVuSans-BoldOblique.ttf', uni=True)
+        except RuntimeError as e:
+            logger.error(f"Could not load DejaVu font: {e}. Cyrillic characters may not display correctly.")
+            logger.error("Please ensure DejaVuSans.ttf, DejaVuSans-Bold.ttf, DejaVuSans-Oblique.ttf, and DejaVuSans-BoldOblique.ttf are in the script's directory or provide a full path.")
+            logger.error("Falling back to Helvetica; Cyrillic support will be MISSING.")
+
         pdf.add_page()
 
         author_name = author_details.get('name', 'N/A')
-        pdf.set_font('Helvetica', 'B', 14)
-        pdf.multi_cell(0, 10, author_name, border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('DejaVu', 'B', 14)
+        pdf.multi_cell(0, 10, encode_string_for_pdf(author_name), border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font('DejaVu', '', 10)
         affiliation = author_details.get('affiliation')
         if affiliation:
-            pdf.multi_cell(0, 5, affiliation, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(0, 5, encode_string_for_pdf(affiliation), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         else: pdf.ln(1)
 
         interests = author_details.get('interests')
         if interests:
             interests_str = ", ".join(interests)
-            pdf.multi_cell(0, 5, interests_str, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(0, 5, encode_string_for_pdf(interests_str), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         else: pdf.ln(1)
 
         profile_url = None
@@ -220,33 +218,57 @@ def save_results_to_pdf(filename, author_details, l_index, processed_count, tota
         if scholar_id:
             profile_url = f"https://scholar.google.com/citations?user={scholar_id}"
             pdf.set_text_color(0, 0, 255); pdf.set_font('', 'U')
-            pdf.cell(0, 5, profile_url, link=profile_url, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 5, encode_string_for_pdf(profile_url), link=profile_url, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font('', ''); pdf.set_text_color(0, 0, 0)
         else: pdf.ln(1)
 
         pdf.ln(5)
 
         if was_rate_limited:
-            pdf.set_text_color(255, 0, 0); pdf.set_font('Helvetica', 'B', 10)
-            pdf.multi_cell(0, 5, "*** WARNING: Processing aborted early due to Google Scholar rate limit (429 errors). Results are based on incomplete data. ***", border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_text_color(255, 0, 0); pdf.set_font('DejaVu', 'B', 10)
+            pdf.multi_cell(0, 5, encode_string_for_pdf("*** WARNING: Processing aborted or affected by Google Scholar rate limit (429 errors). Results may be based on incomplete data. ***"), border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_text_color(0, 0, 0); pdf.ln(2)
 
         pdf.key_value("L-index", f"{l_index:.2f}" if l_index is not None else "Error")
 
-        pdf.set_font('Helvetica', 'I', 9)
+        pdf.set_font('DejaVu', 'I', 9)
         current_date_str = datetime.datetime.now().strftime("%d %B %Y")
-        calc_basis_str = f"Calculated on {current_date_str} based on the {total_pubs_reported} most cited publications"
-        pdf.multi_cell(0, 5, calc_basis_str, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_font('Helvetica', '', 10)
+        calc_basis_str = f"Calculated on {current_date_str} based on the {total_pubs_reported} most cited publications fetched"
+        pdf.multi_cell(0, 5, encode_string_for_pdf(calc_basis_str), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_font('DejaVu', '', 10)
         pdf.ln(1)
+
+        pdf.ln(3)
+        total_skipped_in_pdf = sum(
+            count for reason, count in skips_summary_data.items()
+            if reason != 'processing_halted_by_rate_limit' and count > 0
+        )
+        halted_early_count_pdf = skips_summary_data.get('processing_halted_by_rate_limit', 0)
+
+        if total_skipped_in_pdf > 0 or halted_early_count_pdf > 0:
+            pdf.set_font('DejaVu', 'B', 10)
+            pdf.cell(0, 6, "Publication Processing Notes:", border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_font('DejaVu', '', 9)
+
+            if total_skipped_in_pdf > 0:
+                pdf.multi_cell(0, 5, encode_string_for_pdf(f"- Publications skipped due to missing/invalid data: {total_skipped_in_pdf}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                for reason, count in skips_summary_data.items():
+                    if count > 0 and reason != 'processing_halted_by_rate_limit':
+                        reason_text = reason.replace('_', ' ')
+                        pdf.multi_cell(0, 4, encode_string_for_pdf(f"    - {count} due to: {reason_text}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            
+            if halted_early_count_pdf > 0:
+                pdf.multi_cell(0, 5, encode_string_for_pdf(f"- Publications not processed/completed due to rate limit or early stop: {halted_early_count_pdf}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(3)
 
         pdf.ln(5)
 
         pubs_to_show_in_table = top_pubs[:TOP_N_PUBS_TO_SAVE_IN_REPORT]
-        pdf.chapter_title(f"Top {len(pubs_to_show_in_table)} Contributing Publications")
+        pdf.chapter_title(f"Top {len(pubs_to_show_in_table)} Contributing Publications (among {processed_count} successfully processed)")
+
 
         if not pubs_to_show_in_table:
-            pdf.cell(0, 6, "(No publications processed had a contribution score > 0 or process was stopped early)", border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.cell(0, 6, "(No publications processed had a contribution score > 0 or processing was stopped/encountered issues)", border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         else:
             header = ['#', 'Score', 'Cites', 'Authors', 'Age', 'Year', 'Title']
             table_data = []
@@ -262,21 +284,21 @@ def save_results_to_pdf(filename, author_details, l_index, processed_count, tota
             pdf.publication_table(header, table_data)
 
         pdf.ln(10)
-        pdf.set_font('Helvetica','', 8)
+        pdf.set_font('DejaVu','', 8)
         current_year = datetime.datetime.now().year
         footer1 = f"L-index Calculator by Aleksey V. Belikov, 2025"
         footer2 = f"L-index concept by Aleksey V. Belikov & Vitaly V. Belikov, 2015"
-        pdf.cell(0, 5, footer1, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.cell(0, 5, footer2, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, encode_string_for_pdf(footer1), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, encode_string_for_pdf(footer2), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        pdf.set_font('Helvetica', 'B', 8)
+        pdf.set_font('DejaVu', 'B', 8)
         pdf.cell(0, 5, " ", align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_font('Helvetica','', 8)
+        pdf.set_font('DejaVu','', 8)
         citation_text = "Belikov AV and Belikov VV. A citation-based, author- and age-normalized, logarithmic index for evaluation of individual researchers independently of publication counts. F1000Research 2015, 4:884"
         citation_url = "https://doi.org/10.12688/f1000research.7070.1"
-        pdf.multi_cell(0, 4, citation_text, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.multi_cell(0, 4, encode_string_for_pdf(citation_text), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(0, 0, 255); pdf.set_font('', 'U')
-        pdf.cell(0, 4, f"({citation_url})", align='L', link=citation_url, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 4, encode_string_for_pdf(f"({citation_url})"), align='L', link=citation_url, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(0, 0, 0); pdf.set_font('', '')
 
         pdf.output(filename)
@@ -288,14 +310,21 @@ def save_results_to_pdf(filename, author_details, l_index, processed_count, tota
 
 
 def calculate_l_index(author_name_or_id, max_pubs_limit):
-    """Searches for an author, calculates their L-Index, and fetches details."""
     preliminary_index_I = 0.0
     processed_pubs_count = 0
     author_details = {'name': 'N/A', 'affiliation': None, 'interests': [], 'scholar_id': None, 'citedby': 'N/A'}
     publication_details = []
     rate_limited = False
     total_pubs_reported = 0
-    i = -1 
+    i = -1
+    
+    skipped_details = {
+        'author_field_empty': 0,
+        'pub_year_missing': 0,
+        'pub_year_invalid_format_or_range': 0,
+        'processing_halted_by_rate_limit': 0,
+        'other_critical_error_per_pub': 0
+    }
 
     try:
         logger.info(f"Searching for author: {author_name_or_id}")
@@ -312,12 +341,12 @@ def calculate_l_index(author_name_or_id, max_pubs_limit):
                 author_to_process = author_stub
                 if not author_details['scholar_id']: raise ValueError("Author ID search returned result without scholar_id.")
                 logger.info(f"Found author by ID: {author_details['name']} (ID: {author_details['scholar_id']})")
-            except MaxTriesExceededException as rt_err: logger.error(f"Rate limit during author ID lookup: {rt_err}. Aborting."); rate_limited = True; return None, author_details, 0.0, 0, 0, [], rate_limited, i
+            except MaxTriesExceededException as rt_err: logger.error(f"Rate limit during author ID lookup: {rt_err}. Aborting."); rate_limited = True; return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
             except StopIteration:
                  logger.error(f"No author found for ID '{author_name_or_id}'. ID might be invalid or profile private/removed.")
-                 return None, author_details, 0.0, 0, 0, [], rate_limited, i
-            except Exception as e: logger.error(f"Failed during author ID lookup: {e}", exc_info=False); return None, author_details, 0.0, 0, 0, [], rate_limited, i
-        else: 
+                 return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
+            except Exception as e: logger.error(f"Failed during author ID lookup: {e}", exc_info=False); return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
+        else:
              potential_authors = []
              try:
                   search_query = scholarly.scholarly.search_author(author_name_or_id)
@@ -329,14 +358,14 @@ def calculate_l_index(author_name_or_id, max_pubs_limit):
                          elif auth: logger.warning(f"Search result missing 'scholar_id': {auth.get('name', 'N/A')}")
                      except StopIteration: break
                      except MaxTriesExceededException as rt_err_inner: logger.error(f"Rate limit during author search iteration {idx+1}: {rt_err_inner}. Stopping search."); rate_limited = True; break
-                     except Exception as e_inner: logger.error(f"Error during author search iteration {idx+1}: {e_inner}. Stopping search."); break 
+                     except Exception as e_inner: logger.error(f"Error during author search iteration {idx+1}: {e_inner}. Stopping search."); break
                   logger.info(f"Found {len(potential_authors)} potential author(s) with IDs.")
              except MaxTriesExceededException as rt_err: logger.error(f"Rate limit during initial author search setup: {rt_err}. Aborting."); rate_limited = True
              except StopIteration: logger.info(f"Found {len(potential_authors)} potential author(s) with IDs (StopIteration caught).")
              except Exception as e: logger.error(f"Error during author search setup: {e}", exc_info=False); potential_authors = []
 
-             if rate_limited: return None, author_details, 0.0, 0, 0, [], rate_limited, i
-             if not potential_authors: logger.error(f"Author '{author_name_or_id}' not found or no suitable matches retrieved."); return None, author_details, 0.0, 0, 0, [], rate_limited, i
+             if rate_limited: return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
+             if not potential_authors: logger.error(f"Author '{author_name_or_id}' not found or no suitable matches retrieved."); return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
 
              best_match_author = None; highest_ratio = 0.0; query_lower = author_name_or_id.lower()
              logger.info("Evaluating potential matches:")
@@ -364,15 +393,15 @@ def calculate_l_index(author_name_or_id, max_pubs_limit):
              else:
                  logger.warning(f"Could not find a confident match. Best match '{best_match_author.get('name', 'N/A') if best_match_author else 'None'}' had ratio {highest_ratio:.3f} (Threshold: {effective_threshold:.2f}).")
                  logger.error(f"Failed to identify a sufficiently similar author match.")
-                 return None, author_details, 0.0, 0, 0, [], rate_limited, i
+                 return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
 
-             author_to_process = selected_author_final 
+             author_to_process = selected_author_final
              author_details['scholar_id'] = author_to_process.get('scholar_id')
-             author_details['name'] = author_to_process.get('name', 'Name Not Found') 
+             author_details['name'] = author_to_process.get('name', 'Name Not Found')
 
         if not author_to_process or not author_details.get('scholar_id'):
             logger.error("Author selection process failed to yield a valid author object or ID.")
-            return None, author_details, 0.0, 0, 0, [], rate_limited, i
+            return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
 
         logger.info(f"Fetching full profile details for {author_details.get('name', 'N/A')} (ID: {author_details.get('scholar_id')})...")
         author_filled_profile = None
@@ -405,7 +434,7 @@ def calculate_l_index(author_name_or_id, max_pubs_limit):
                     sortby='citedby',
                     publication_limit=max_pubs_limit
                 )
-            else: 
+            else:
                  logger.info("Publications section already present, using existing data (up to limit).")
                  author_pubs_filled = author_obj_for_pubs
 
@@ -417,110 +446,131 @@ def calculate_l_index(author_name_or_id, max_pubs_limit):
         except MaxTriesExceededException as rt_err:
             logger.error(f"Rate limit occurred while fetching publication list: {rt_err}. Aborting calculation.")
             rate_limited = True
-            return None, author_details, 0.0, 0, 0, [], rate_limited, i
+            return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
         except Exception as e:
             logger.error(f"Error fetching publication list: {e}", exc_info=False)
-            return None, author_details, 0.0, 0, 0, [], rate_limited, i
+            return None, author_details, 0.0, 0, 0, [], rate_limited, skipped_details
 
         total_pubs_reported = len(initial_pubs)
         if not initial_pubs and not rate_limited:
             logger.warning(f"No publications found for author {author_details.get('name')}. L-index will be 0.")
-            return 0.0, author_details, 0.0, 0, total_pubs_reported, [], rate_limited, i
+            return 0.0, author_details, 0.0, 0, total_pubs_reported, [], rate_limited, skipped_details
 
         pubs_to_process = initial_pubs
         num_selected = len(pubs_to_process)
         logger.info(f"Fetched {num_selected} publications (limit was {max_pubs_limit}). Starting processing...")
         current_year = datetime.datetime.now().year
-        skipped_count_within_top_n = 0
 
         for i, pub_stub in enumerate(pubs_to_process):
-            if rate_limited:
-                 logger.warning(f"Stopping publication processing at pub {i+1} due to earlier rate limit.")
-                 break
+            if rate_limited and not skipped_details['processing_halted_by_rate_limit']:
+                skipped_details['processing_halted_by_rate_limit'] = num_selected - i
+                logger.warning(f"Skipping remaining {num_selected - i} publications processing due to rate limit flag set before or during this pub's processing.")
+                break
+            if skipped_details['processing_halted_by_rate_limit'] > 0:
+                break
 
             pub_title_guess = pub_stub.get('bib', {}).get('title', 'Unknown Title')
             logger.info(f"Processing pub {i+1}/{num_selected}: '{pub_title_guess[:60]}...'")
 
             try:
                 pub = None
+                bib = {}
                 author_str = ''
-                num_authors = 1 
+                citations = 0
 
                 try:
                     pub = scholarly.scholarly.fill(pub_stub)
                     bib = pub.get('bib', {})
-                    author_str = bib.get('author', '')
-                    num_authors_temp = count_authors(author_str)
-                    if num_authors_temp is None:
-                        logger.warning(f"Could not reliably count authors for pub {i+1} ('{pub_title_guess[:50]}...'). Assuming 1 author.")
-                        num_authors = 1
-                    else:
-                        num_authors = num_authors_temp
                 except MaxTriesExceededException as rt_err:
-                    logger.error(f"Rate limit hit while filling details for pub {i+1} ('{pub_title_guess[:50]}...'): {rt_err}. Aborting further processing.")
+                    logger.error(f"Rate limit hit while filling details for pub {i+1} ('{pub_title_guess[:50]}...'): {rt_err}. Aborting further publication processing.")
                     rate_limited = True
-                    skipped_count_within_top_n += 1
+                    skipped_details['processing_halted_by_rate_limit'] = (num_selected - i)
                     break
                 except Exception as fill_err:
-                    logger.error(f"Failed to fill details for pub {i+1} ('{pub_title_guess[:50]}...'): {fill_err}. Will use stub data and assume 1 author.", exc_info=False)
+                    logger.warning(f"Failed to fill details for pub {i+1} ('{pub_title_guess[:50]}...'): {fill_err}. Using stub data for checks.", exc_info=False)
                     pub = pub_stub
-                    bib = pub_stub.get('bib', {})
-                    author_str = bib.get('author', '') 
-                    num_authors = 1 
-                    logger.warning(f"Assuming 1 author for pub {i+1} due to fill error.")
-                
-                citations = pub.get('num_citations', pub_stub.get('num_citations', 0))
-                pub_year_str = bib.get('pub_year', None)
+                    bib = pub.get('bib', {})
+
                 title = bib.get('title', 'Title Not Available')
 
-                if pub_year_str is None:
-                    logger.warning(f"Skipping pub {i+1} ('{title[:50]}...') due to missing publication year.")
-                    skipped_count_within_top_n += 1
+                author_str = bib.get('author', '')
+                if not author_str:
+                    logger.warning(f"Skipping pub {i+1} ('{title[:50]}...') due to missing or empty 'author' field.")
+                    skipped_details['author_field_empty'] += 1
                     continue
+
+                pub_year_str = bib.get('pub_year', None)
+                if pub_year_str is None:
+                    logger.warning(f"Skipping pub {i+1} ('{title[:50]}...') due to missing 'pub_year' field.")
+                    skipped_details['pub_year_missing'] += 1
+                    continue
+                
+                pub_year = 0
                 try:
                     pub_year = int(pub_year_str)
-                    if pub_year > current_year + 2 or pub_year < 1800: 
-                        logger.warning(f"Skipping pub {i+1} ('{title[:50]}...') due to potentially invalid year: {pub_year}.")
-                        skipped_count_within_top_n += 1
+                    if not (1800 <= pub_year <= current_year + 2):
+                        logger.warning(f"Skipping pub {i+1} ('{title[:50]}...') due to out-of-range year: {pub_year}.")
+                        skipped_details['pub_year_invalid_format_or_range'] += 1
                         continue
                 except ValueError:
                     logger.warning(f"Skipping pub {i+1} ('{title[:50]}...') due to non-integer year format: '{pub_year_str}'.")
-                    skipped_count_within_top_n += 1
+                    skipped_details['pub_year_invalid_format_or_range'] += 1
                     continue
 
+                citations_val = pub.get('num_citations')
+                if citations_val is None and pub is not pub_stub:
+                    citations_val = pub_stub.get('num_citations')
+
+                if citations_val is None:
+                    citations = 0
+                else:
+                    citations = int(citations_val)
+
+                num_authors_temp = count_authors(author_str)
+                num_authors = 1
+                if num_authors_temp is None:
+                    logger.warning(f"Could not reliably count authors for pub {i+1} ('{title[:50]}...') from non-empty string '{author_str[:30]}...'. Assuming 1 author.")
+                else:
+                    num_authors = num_authors_temp
                 
-                citations = citations if citations is not None else 0
-
                 age = max(1, current_year - pub_year + 1)
-
                 denominator = num_authors * age
-
-                term = citations / denominator
+                term = citations / denominator if denominator > 0 else 0
 
                 pub_data = {
-                    'term': term,
-                    'title': title,
-                    'year': pub_year,
-                    'citations': citations,
-                    'authors': num_authors,
-                    'age': age
+                    'term': term, 'title': title, 'year': pub_year,
+                    'citations': citations, 'authors': num_authors, 'age': age
                 }
                 publication_details.append(pub_data)
                 preliminary_index_I += term
                 processed_pubs_count += 1
 
-                if (processed_pubs_count % 25 == 0) and processed_pubs_count > 0: # Log more frequently if needed
-                    logger.info(f"Processed {processed_pubs_count}/{num_selected} pubs...")
+                if (processed_pubs_count % 25 == 0) and processed_pubs_count > 0:
+                    logger.info(f"Processed {processed_pubs_count} valid publications so far...")
 
             except Exception as e:
-                logger.error(f"Critical error processing pub {i+1} ('{pub_title_guess[:50]}...'): {e}", exc_info=False)
-                skipped_count_within_top_n += 1
+                pub_title_for_error = pub_stub.get('bib', {}).get('title', 'Unknown Title')
+                logger.error(f"Critical error processing pub {i+1} ('{pub_title_for_error[:50]}...'): {e}. Skipping this publication.", exc_info=False)
+                skipped_details['other_critical_error_per_pub'] += 1
 
-        if skipped_count_within_top_n > 0:
-            logger.warning(f"Skipped {skipped_count_within_top_n} publications within the attempted set ({i+1} pubs) due to missing/invalid data or processing errors.")
+        if any(skipped_details.values()):
+            logger.info("--- Publication Skipping & Processing Summary ---")
+            total_pubs_iterated_before_stop = i + 1 if i != -1 else 0
+            
+            if pubs_to_process and total_pubs_iterated_before_stop == 0 and skipped_details.get('processing_halted_by_rate_limit',0) == num_selected:
+                 pass
+            elif num_selected > 0 :
+                 logger.info(f"Attempted to process up to publication {total_pubs_iterated_before_stop} out of {num_selected} fetched.")
 
+            for reason, count in skipped_details.items():
+                if count > 0:
+                    reason_text = reason.replace('_', ' ')
+                    if reason == 'processing_halted_by_rate_limit':
+                        logger.warning(f"{count} publications were not processed or completed due to: {reason_text}")
+                    else:
+                        logger.info(f"Skipped {count} pubs (among those attempted) due to: {reason_text}")
 
-        l_index = math.log(preliminary_index_I + 1)
+        l_index = math.log(preliminary_index_I + 1) if preliminary_index_I > 0 else 0.0
 
         logger.info("Sorting processed publications by contribution score (term)...")
         sorted_contributors = sorted(publication_details, key=lambda p: p['term'], reverse=True)
@@ -533,16 +583,15 @@ def calculate_l_index(author_name_or_id, max_pubs_limit):
         if rate_limited:
             logger.warning("Calculation finished BUT was affected or aborted early due to Google Scholar rate limiting.")
         else:
-            logger.info("Calculation process completed.")
-            if i + 1 < num_selected:
-                logger.warning(f"Processing loop did not complete all {num_selected} fetched publications (stopped at {i+1}). This might indicate an error not caught as rate limit.")
+            logger.info(f"Calculation process completed. Processed {processed_pubs_count} publications successfully.")
+            if i + 1 < num_selected and not skipped_details.get('processing_halted_by_rate_limit'):
+                 logger.warning(f"Processing loop did not complete all {num_selected} fetched publications (stopped after attempting pub {i+1}). This might indicate an error not caught as rate limit, or all remaining pubs were skipped for data reasons.")
 
-        return l_index, author_details, preliminary_index_I, processed_pubs_count, total_pubs_reported, top_contributing_list, rate_limited, i
+        return l_index, author_details, preliminary_index_I, processed_pubs_count, total_pubs_reported, top_contributing_list, rate_limited, skipped_details
 
     except Exception as e:
         logger.error(f"An unexpected critical error occurred during the main calculation process: {e}", exc_info=True)
-        if 'i' not in locals(): i = -1
-        return None, author_details, preliminary_index_I, processed_pubs_count, total_pubs_reported, [], rate_limited, i
+        return None, author_details, preliminary_index_I, processed_pubs_count, total_pubs_reported, [], rate_limited, skipped_details
 
 
 if __name__ == "__main__":
@@ -551,22 +600,22 @@ if __name__ == "__main__":
     print("-" * 60)
     max_pubs_limit = MAX_PUBS_TO_PROCESS
     print("-" * 60)
-    print("IMPORTANT NOTES:")
+    pprint("IMPORTANT NOTES:")
     print("1. Results are entirely dependent on the accuracy, completeness and public availability of the scientist's Google Scholar profile")
-    print("2. While the script attempts to find the best match for an author's name, errors can occur, especially for common names")
-    print("3. Check the affiliation, keywords and top publications in the output pdf to verify that the correct scientist has been identified")
+    print("2. While the script attempts to find the best match for the scientist's name, errors can occur, especially for common names")
+    print("3. Check the affiliation, keywords and top publications in the log or output pdf to verify that the correct scientist has been identified")
     print("4. Using the Google Scholar ID is recommended, it can be found at the end of the profile URL")
-    print("5. The count_authors function estimates author numbers, which can sometimes be imprecise for complex author strings or large consortia")
-    print(f"6. Calculation is based on the {max_pubs_limit} most cited publications found (or fewer if author has less)")
-    print("7. This can be changed by modifying MAX_PUBS_TO_PROCESS parameter in the code")
-    print("8. Extensive requests can lead to temporary IP blocks (rate limiting) from Google Scholar, so it is recommended to keep MAX_PUBS_TO_PROCESS to 100")
-    print("9. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy")
-    print("10. Selecting too low a MAX_PUBS_TO_PROCESS value will lead to underestimation of the L-index")
-    print("11. Nevertheless, 100 most cited publications capture the bulk of the L-index, even for authors with many hundreds of publications")
-    print("12. Always compare scientists using the same MAX_PUBS_TO_PROCESS value to calculate their L-indices")
-    print(f"13. A PDF report including the top {TOP_N_PUBS_TO_SAVE_IN_REPORT} contributing publications will be saved in the '{OUTPUT_DIR}' directory")
-    print("14. The number of the top contributing publications in the pdf report can be changed by modifying TOP_N_PUBS_TO_SAVE_IN_REPORT parameter in the code")
-    print("15. The PDF generation uses latin-1 encoding with replacements for unsupported characters. Some special characters in names or titles might not render perfectly")
+    print("5. Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations")
+    print("6. If the script identifies one of the keywords for a large group of authors in the "authors" database field, it will add 50 authors to the author count, because the actual number of authors is unknown")
+    print(f"7. Keywords used for this are {LARGE_GROUP_KEYWORDS}")
+    print(f"8. Calculation is based on the {max_pubs_limit} of the scientist's most cited publications (or fewer if the scientist has less or some data were missing)")
+    print("9. This can be changed by modifying MAX_PUBS_TO_PROCESS parameter in the code")
+    print("10. Extensive requests can lead to temporary IP blocks (rate limiting) from Google Scholar, so it is recommended to keep MAX_PUBS_TO_PROCESS to 100 or below")
+    print("11. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy")
+    print("12. Selecting too low a MAX_PUBS_TO_PROCESS value (e.g. <50) will lead to underestimation of the L-index")
+    print("13. Nevertheless, we demonstrated that 50-100 most cited publications capture the bulk of the L-index, even for scientists with many hundreds of publications")
+    print("14. Always compare scientists using the same MAX_PUBS_TO_PROCESS value to calculate their L-indices")
+    print(f"15. A PDF report including the top {TOP_N_PUBS_TO_SAVE_IN_REPORT} contributing publications will be saved in the '{OUTPUT_DIR}' directory")
     print("-" * 60)
 
     author_query = input("Enter Author Name or Google Scholar ID: ")
@@ -574,7 +623,7 @@ if __name__ == "__main__":
     if not author_query:
         print("No author name or ID provided. Exiting.")
     else:
-        l_index, author_data, prelim_I, processed_count, total_reported, top_contrib_pubs, was_rate_limited, last_attempted_index = calculate_l_index(
+        l_index, author_data, prelim_I, processed_count, total_reported, top_contrib_pubs, was_rate_limited, skips_summary_data = calculate_l_index(
             author_query,
             max_pubs_limit
         )
@@ -587,7 +636,7 @@ if __name__ == "__main__":
 
         if was_rate_limited:
             print("\n--- WARNING: RATE LIMITED ---")
-            print(f"Processing may have stopped early due to Google Scholar rate limits.")
+            print(f"Processing may have stopped early or been affected by Google Scholar rate limits.")
             print("Results shown below might be based on INCOMPLETE data gathered before the limit was hit.")
             print(f"If errors persist, please wait a significant amount of time (e.g., hours) before trying again.")
             if author_full_name_display.startswith("N/A"):
@@ -600,9 +649,8 @@ if __name__ == "__main__":
                  print(f"Author Identified: {author_full_name_display} (ID: {author_data.get('scholar_id', 'N/A')})")
                  print(f"Affiliation:       {author_data.get('affiliation', 'N/A')}")
                  print(f"Could not complete L-index calculation due to errors after author identification.")
-                 print(f"(Attempted to process up to publication {last_attempted_index + 1 if last_attempted_index != -1 else 'N/A'} out of {total_reported} fetched).")
                  print(f"(Successfully processed {processed_count} publications before error/stop).")
-                 print("Please check the script's log output for detailed error messages.")
+                 print("Please check the script's log output for detailed error messages and skip reasons.")
 
             else:
                 print("\n--- Results Summary ---")
@@ -613,27 +661,24 @@ if __name__ == "__main__":
                 scholar_id = author_data.get('scholar_id')
                 print(f"Scholar Profile:   {'https://scholar.google.com/citations?user=' + scholar_id if scholar_id else 'N/A'}")
                 print(f"L-Index:           {l_index:.2f}")
-                print(f"Calculation Basis: The {total_reported} most cited publications fetched from Google Scholar.")
+                print(f"Calculation Basis: {total_reported} most cited publications fetched from Google Scholar.")
                 print(f"Pubs Processed:    {processed_count} / {total_reported} (Fetched)")
 
-                pubs_attempted_in_loop = last_attempted_index + 1 if last_attempted_index != -1 else 0
-                skips_within_attempted_group = max(0, pubs_attempted_in_loop - processed_count)
-                unreached_due_to_stop = max(0, total_reported - pubs_attempted_in_loop)
-                total_unprocessed_within_fetched = skips_within_attempted_group + unreached_due_to_stop
+                total_skipped_for_data_reasons = sum(
+                    count for reason, count in skips_summary_data.items()
+                    if reason != 'processing_halted_by_rate_limit' and count > 0
+                )
+                halted_by_rate_limit_count = skips_summary_data.get('processing_halted_by_rate_limit', 0)
 
-                if total_unprocessed_within_fetched > 0:
-                     print(f"Note: {total_unprocessed_within_fetched} publications within the fetched {total_reported} were not fully processed.")
-                     if skips_within_attempted_group > 0:
-                         print(f"      - {skips_within_attempted_group} were attempted (up to pub #{pubs_attempted_in_loop}) but failed detail fetch, validation, or had invalid data (check logs).")
-                     if unreached_due_to_stop > 0:
-                         reason = "rate limit or other processing stop" if was_rate_limited else "an early processing stop (check logs)"
-                         print(f"      - {unreached_due_to_stop} were not reached in the processing loop (after pub #{pubs_attempted_in_loop}) likely due to {reason}.")
+                if total_skipped_for_data_reasons > 0:
+                    print(f"Skipped Publications (due to data issues): {total_skipped_for_data_reasons}")
+                    for reason, count in skips_summary_data.items():
+                        if count > 0 and reason not in ['processing_halted_by_rate_limit']:
+                            print(f"      - {count} due to: {reason.replace('_', ' ')}")
+                
+                if halted_by_rate_limit_count > 0:
+                    print(f"Processing Halted Early: {halted_by_rate_limit_count} publication(s) were not processed or completed due to rate limiting or other early stop.")
 
-                skips_info_pdf = {
-                    'total': total_unprocessed_within_fetched,
-                    'failed_processing': skips_within_attempted_group,
-                    'unreached_limit': unreached_due_to_stop
-                 }
 
                 if author_full_name and author_full_name != 'N/A':
                     try:
@@ -651,10 +696,10 @@ if __name__ == "__main__":
                             total_reported,
                             top_contrib_pubs,
                             was_rate_limited,
-                            skips_info_pdf
+                            skips_summary_data
                         )
                     except Exception as pdf_err:
-                        pass 
+                        pass
                 else:
                     logger.warning("Skipping PDF generation because a valid author name could not be determined for the filename.")
                     print("\nWarning: PDF report generation skipped as author name was not fully determined.")
