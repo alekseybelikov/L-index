@@ -122,7 +122,7 @@ class PDF(FPDF):
              self.cell(0, 6, "N/A", border=0, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     def publication_table(self, header, data):
-        self.set_font('DejaVu', 'B', 8) # Changed from Helvetica
+        self.set_font('DejaVu', 'B', 8)
         total_width = self.w - 2 * self.l_margin
         base_pcts = [0.04, 0.08, 0.08, 0.08, 0.05, 0.06]
         min_widths = [8, 12, 12, 12, 8, 10]
@@ -142,14 +142,76 @@ class PDF(FPDF):
             self.cell(col_widths[i], 7, header_text, border=1, align=align_val, new_x=new_x_pos, new_y=new_y_pos)
 
         self.set_font('DejaVu', '', 8)
-        for row in data:
-            y_start = self.get_y()
+        line_height_for_cells = 5
+        align_map = [Align.R, Align.R, Align.R, Align.R, Align.R, Align.C, Align.L]
 
-            title_chars_per_line_est = col_widths[6] * 2 if col_widths[6] > 0 else 1
-            title_lines = math.ceil(len(str(row[6])) / title_chars_per_line_est) if title_chars_per_line_est > 0 else 1
-            needed_height = max(5, title_lines * 4)
+        _avg_char_width_mm_cached = getattr(self, '_avg_char_width_mm_cached', None)
+        if _avg_char_width_mm_cached is None:
+            sample_str_for_avg_width = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
+            _avg_char_width_mm_cached = 0
+            if self.font_size > 0:
+                try:
+                    width_of_sample = self.get_string_width(sample_str_for_avg_width)
+                    if width_of_sample > 0:
+                        _avg_char_width_mm_cached = width_of_sample / len(sample_str_for_avg_width)
+                except Exception: pass
 
-            if y_start + needed_height > self.h - self.b_margin:
+            if _avg_char_width_mm_cached == 0: 
+                _avg_char_width_mm_cached = self.font_size * 0.45
+            if _avg_char_width_mm_cached == 0: 
+                _avg_char_width_mm_cached = 1.0
+            self._avg_char_width_mm_cached = _avg_char_width_mm_cached
+
+        for row_idx, row_data in enumerate(data):
+            y_start_row = self.get_y()
+            max_lines_this_row = 1
+            needed_row_height = 0
+
+            try:
+                for cell_idx, cell_content_text in enumerate(row_data):
+                    text_for_cell = encode_string_for_pdf(cell_content_text)
+                    width_for_cell = col_widths[cell_idx]
+                    
+                    num_cell_lines = 1
+                    if width_for_cell > 0:
+                        prev_x, prev_y = self.get_x(), self.get_y()
+                        lines_list = self.multi_cell(
+                            w=width_for_cell, h=line_height_for_cells, text=text_for_cell,
+                            border=0, align=align_map[cell_idx], split_only=True
+                        )
+                        self.set_xy(prev_x, prev_y)
+                        num_cell_lines = max(1, len(lines_list))
+                    else:
+                        num_cell_lines = max(1, text_for_cell.count('\n') + 1)
+                    max_lines_this_row = max(max_lines_this_row, num_cell_lines)
+                
+                needed_row_height = max_lines_this_row * line_height_for_cells
+
+            except (TypeError, AttributeError) as e:
+                err_msg = str(e).lower()
+                if 'split_only' in err_msg or "unexpected keyword argument 'split_only'" in err_msg:
+                    if not getattr(self, '_split_only_fallback_warned', False):
+                        logger.warning("FPDF version might not support multi_cell(split_only=True). Using fallback height estimation for all cells. Table layout may be suboptimal.")
+                        self._split_only_fallback_warned = True
+                    
+                    max_estimated_lines_this_row = 1
+                    for cell_idx_fallback, cell_content_text_fallback in enumerate(row_data):
+                        text_fb = encode_string_for_pdf(cell_content_text_fallback)
+                        width_fb = col_widths[cell_idx_fallback]
+                        num_cell_lines_fb = 1
+                        if width_fb > 0 and self._avg_char_width_mm_cached > 0 and len(text_fb) > 0:
+                            chars_that_fit_line_fb = max(1, math.floor(width_fb / self._avg_char_width_mm_cached))
+                            num_cell_lines_fb = math.ceil(len(text_fb) / chars_that_fit_line_fb)
+                        
+                        num_cell_lines_fb = max(1, num_cell_lines_fb)
+                        num_cell_lines_fb = max(num_cell_lines_fb, text_fb.count('\n') + 1)
+                        max_estimated_lines_this_row = max(max_estimated_lines_this_row, num_cell_lines_fb)
+                    
+                    needed_row_height = max_estimated_lines_this_row * line_height_for_cells
+                else:
+                    raise e
+            
+            if y_start_row + needed_row_height > self.h - self.b_margin:
                 self.add_page()
                 self.set_font('DejaVu', 'B', 8)
                 for i_h, title_h in enumerate(header):
@@ -159,26 +221,28 @@ class PDF(FPDF):
                     header_text_new = encode_string_for_pdf(title_h)
                     self.cell(col_widths[i_h], 7, header_text_new, border=1, align=align_val, new_x=new_x_pos, new_y=new_y_pos)
                 self.set_font('DejaVu', '', 8)
-                y_start = self.get_y()
+                y_start_row = self.get_y()
 
-            current_max_y = y_start
-            align_map = [Align.R, Align.R, Align.R, Align.R, Align.R, Align.C, Align.L]
-            current_x = self.l_margin
-            for idx, (cell_data, width, align_val) in enumerate(zip(row, col_widths, align_map)):
-                self.set_xy(current_x, y_start)
-                processed_data = encode_string_for_pdf(cell_data)
-                self.multi_cell(width, 5, processed_data, border=0, align=align_val)
-                current_max_y = max(current_max_y, self.get_y())
-                current_x += width
+            actual_row_end_y = y_start_row + needed_row_height
+            current_x_for_cell = self.l_margin
 
-            self.set_y(y_start)
-            x = self.l_margin
-            self.line(x, y_start, x, current_max_y)
-            for w in col_widths:
-                x += w
-                self.line(x, y_start, x, current_max_y)
-            self.line(self.l_margin, current_max_y, self.w - self.r_margin, current_max_y)
-            self.set_y(current_max_y)
+            for idx, (cell_item_data, cell_w, cell_align) in enumerate(zip(row_data, col_widths, align_map)):
+                self.set_xy(current_x_for_cell, y_start_row)
+                processed_text = encode_string_for_pdf(cell_item_data)
+                self.multi_cell(w=cell_w, h=line_height_for_cells, text=processed_text, 
+                                border=0, align=cell_align, 
+                                new_x=XPos.RIGHT, new_y=YPos.TOP)
+                current_x_for_cell += cell_w
+            
+            temp_x_for_border = self.l_margin
+            self.line(temp_x_for_border, y_start_row, temp_x_for_border, actual_row_end_y)
+            for individual_col_width in col_widths:
+                temp_x_for_border += individual_col_width
+                self.line(temp_x_for_border, y_start_row, temp_x_for_border, actual_row_end_y)
+            
+            self.line(self.l_margin, actual_row_end_y, self.w - self.r_margin, actual_row_end_y)
+            
+            self.set_y(actual_row_end_y)
 
 
 def save_results_to_pdf(filename, author_details, l_index, processed_count, total_pubs_reported, top_pubs, was_rate_limited, skips_summary_data):
