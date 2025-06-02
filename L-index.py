@@ -41,6 +41,7 @@ logger.setLevel(logging.INFO)
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
+logging.getLogger('fontTools').setLevel(logging.WARNING)
 
 def sanitize_filename(name):
     s = re.sub(r'[^\w\-\.]+', '_', name)
@@ -177,7 +178,7 @@ class PDF(FPDF):
                         prev_x, prev_y = self.get_x(), self.get_y()
                         lines_list = self.multi_cell(
                             w=width_for_cell, h=line_height_for_cells, text=text_for_cell,
-                            border=0, align=align_map[cell_idx], split_only=True
+                            border=0, align=align_map[cell_idx], dry_run=True, output="LINES"
                         )
                         self.set_xy(prev_x, prev_y)
                         num_cell_lines = max(1, len(lines_list))
@@ -250,10 +251,10 @@ def save_results_to_pdf(filename, author_details, l_index, processed_count, tota
         pdf = PDF(orientation='L', unit='mm', format='A4')
 
         try:
-            pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
-            pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
-            pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf', uni=True)
-            pdf.add_font('DejaVu', 'BI', 'DejaVuSans-BoldOblique.ttf', uni=True)
+            pdf.add_font('DejaVu', '', 'DejaVuSans.ttf')
+            pdf.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf')
+            pdf.add_font('DejaVu', 'I', 'DejaVuSans-Oblique.ttf')
+            pdf.add_font('DejaVu', 'BI', 'DejaVuSans-BoldOblique.ttf')
         except RuntimeError as e:
             logger.error(f"Could not load DejaVu font: {e}. Cyrillic characters may not display correctly.")
             logger.error("Please ensure DejaVuSans.ttf, DejaVuSans-Bold.ttf, DejaVuSans-Oblique.ttf, and DejaVuSans-BoldOblique.ttf are in the script's directory or provide a full path.")
@@ -359,7 +360,7 @@ def save_results_to_pdf(filename, author_details, l_index, processed_count, tota
         pdf.cell(0, 5, " ", align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font('DejaVu','', 8)
         citation_text = "Belikov AV and Belikov VV. A citation-based, author- and age-normalized, logarithmic index for evaluation of individual researchers independently of publication counts. F1000Research 2015, 4:884"
-        citation_url = "https://doi.org/10.12688/f1000research.7070.1"
+        citation_url = "https://doi.org/10.12688/f1000research.7070.2"
         pdf.multi_cell(0, 4, encode_string_for_pdf(citation_text), align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_text_color(0, 0, 255); pdf.set_font('', 'U')
         pdf.cell(0, 4, encode_string_for_pdf(f"({citation_url})"), align='L', link=citation_url, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -664,25 +665,21 @@ if __name__ == "__main__":
     print("-" * 60)
     max_pubs_limit = MAX_PUBS_TO_PROCESS
     print("-" * 60)
-    print("IMPORTANT NOTES:")
     print("1. Results are entirely dependent on the accuracy, completeness and public availability of the scientist's Google Scholar profile")
-    print("2. While the script attempts to find the best match for the scientist's name, errors can occur, especially for common names")
-    print("3. Check the affiliation, keywords and top publications in the log or output pdf to verify that the correct scientist has been identified")
-    print("4. Using the Google Scholar ID is recommended, it can be found at the end of the profile URL")
-    print("5. Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations")
-    print("6. If the script identifies one of the keywords for a large group of authors in the authors database field, it will add 50 authors to the author count, because the actual number of authors is unknown")
-    print(f"7. Keywords used for this are {LARGE_GROUP_KEYWORDS}")
-    print(f"8. Calculation is based on the {max_pubs_limit} of the scientist's most cited publications (or fewer if the scientist has less or some data were missing)")
-    print("9. This can be changed by modifying MAX_PUBS_TO_PROCESS parameter in the code")
-    print("10. Extensive requests can lead to temporary IP blocks (rate limiting) from Google Scholar, so it is recommended to keep MAX_PUBS_TO_PROCESS to 100 or below")
-    print("11. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy")
-    print("12. Selecting too low a MAX_PUBS_TO_PROCESS value (e.g. <50) will lead to underestimation of the L-index")
-    print("13. Nevertheless, we demonstrated that 50-100 most cited publications capture the bulk of the L-index, even for scientists with many hundreds of publications")
-    print("14. Always compare scientists using the same MAX_PUBS_TO_PROCESS value to calculate their L-indices")
-    print(f"15. A PDF report including the top {TOP_N_PUBS_TO_SAVE_IN_REPORT} contributing publications will be saved in the '{OUTPUT_DIR}' directory")
+    print("2. A scientist's Google Scholar ID can be found at the end of their profile URL")
+    print("3. Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations")
+    print("4. If the script identifies one of the keywords for a large group of authors in the authors database field, it will add 50 authors to the author count, because the actual number of authors is unknown")
+    print(f"5. Keywords used for this are {LARGE_GROUP_KEYWORDS}")
+    print(f"6. Calculation is based on the {max_pubs_limit} of the scientist's most cited publications (or fewer if the scientist has less or some data were missing)")
+    print("7. This can be changed by modifying MAX_PUBS_TO_PROCESS parameter in the code")
+    print("8. Extensive requests can lead to temporary IP blocks (rate limiting) from Google Scholar, so it is recommended to keep MAX_PUBS_TO_PROCESS to 100 or below")
+    print("9. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy")
+    print("10. Selecting too low a MAX_PUBS_TO_PROCESS value (e.g. <50) will lead to underestimation of the L-index")
+    print("11. Nevertheless, we demonstrated that 50-100 most cited publications capture the bulk of the L-index, even for scientists with many hundreds of publications")
+    print("12. Always compare scientists using the same MAX_PUBS_TO_PROCESS value to calculate their L-indices")
     print("-" * 60)
 
-    author_query = input("Enter Author Name or Google Scholar ID: ")
+    author_query = input("Enter the scientist's Google Scholar ID: ")
 
     if not author_query:
         print("No author name or ID provided. Exiting.")
