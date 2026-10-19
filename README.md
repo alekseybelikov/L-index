@@ -35,6 +35,7 @@ This tool can be run as a standard Python script (`L-index.py`) or  as a Jupyter
 
 - [Scholarly](https://pypi.org/project/scholarly/) 1.7.11 - for interfacing with Google Scholar to retrieve publication and citation data
 - [fpdf2](https://pypi.org/project/fpdf2/) 2.8.3 - for creating PDF documents
+- [Requests](https://pypi.org/project/requests/) 2.25.0 - for the Semantic Scholar and Crossref API lookups to retrieve the number of authors
 
 These will be installed automatically via the `requirements.txt` file
 
@@ -83,9 +84,9 @@ Several key parameters can be configured by editing the `L-index.py` script or  
 ## Important Notes & Limitations
 
 1.  **Google Scholar Dependency:** Results are entirely dependent on the accuracy, completeness, and public availability of the scientist's Google Scholar profile.
-2. **Information Completeness** Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations. If the script identifies one of the keywords for a large group of authors in the "authors" database field, it will add 50 authors to the author count, because the actual number of authors is unknown. Keywords used for this are "consortium", "consortia", "group", "collaboration", "society", "association", "initiative", "network", "committee", "investigators", "program", "programm", "team", "atlas", "international".
+2. **Information Completeness** Publications with missing author information or publication year will be skipped and a warning will be issued. Missing citation counts will be treated as 0 citations. If the script identifies one of the keywords for a large group of authors in the "authors" database field, it will add 50 authors to the author count (unless it is already over 50), because the actual number of authors is unknown. Keywords used for this are "consortium", "consortia", "group", "collaboration", "society", "association", "initiative", "network", "committee", "investigators", "program", "programm", "team", "atlas", "international".
 3.  **Publication Limit:** The calculation is based on a configurable number (`MAX_PUBS_TO_PROCESS`, default 100) of scientist's most cited publications (or fewer if the scientist has less or some data were missing). Scientists with more publications might have their L-index affected by this limit. Nevertheless, we demonstrated that 50-100 most cited publications capture the bulk of the L-index, even for scientists with many hundreds of publications. Always compare scientists using the same `MAX_PUBS_TO_PROCESS` value to calculate their L-indices.
-4.  **Rate Limiting:** Google Scholar enforces rate limits on requests. Extensive or rapid use of this script (especially for many scientists or with a very high `MAX_PUBS_TO_PROCESS`) can lead to temporary IP blocks (HTTP 429 errors). The script attempts to handle this gracefully but may provide incomplete results if severely rate-limited. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy.
+4.  **Rate Limiting:** Google Scholar enforces rate limits on requests. Extensive or rapid use of this script (especially for many scientists or with a very high `MAX_PUBS_TO_PROCESS`) can lead to temporary IP blocks (HTTP 429 errors). The script attempts to handle this gracefully by first trying to fetch the number of authors from Semantic Scholar and Crossref but may provide incomplete results if severely rate-limited. It is recommended to wait (hours, or even a day) if you encounter persistent rate limiting, or try a different IP address or a proxy.
 
 
 ## License
